@@ -21,6 +21,7 @@ package org.springframework.samples.petclinic.api.application;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.samples.petclinic.api.dto.VisitDetails;
 import org.springframework.samples.petclinic.api.dto.Visits;
@@ -41,9 +42,8 @@ import static java.util.stream.Collectors.joining;
 @Component
 @RequiredArgsConstructor
 public class VisitsServiceClient {
-
-    // Could be changed for testing purpose
-    private String hostname = "http://visits-service/";
+    @Value("${poc.address.vet:ec2-52-77-221-140.ap-southeast-1.compute.amazonaws.com:8080}")
+    private String pocVisitAddress;
 
     private final WebClient.Builder webClientBuilder;
 
@@ -52,10 +52,10 @@ public class VisitsServiceClient {
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_APPLICATION, "visits-service");
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_OPERATION, "/pets/visits");
         return webClientBuilder.build()
-            .get()
-            .uri(hostname + "pets/visits?petId={petId}", joinIds(petIds))
-            .retrieve()
-            .bodyToMono(Visits.class);
+                .get()
+                .uri(pocVisitAddress + "/pets/visits?petId={petId}", joinIds(petIds))
+                .retrieve()
+                .bodyToMono(Visits.class);
 
     }
 
@@ -64,10 +64,10 @@ public class VisitsServiceClient {
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_APPLICATION, "visits-service");
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_OPERATION, "/owners/*/pets/{petId}/visits");
         return webClientBuilder.build()
-            .get()
-            .uri(hostname + "owners/{ownerId}/pets/{petId}/visits", ownerId, petId)
-            .retrieve()
-            .bodyToMono(Visits.class);
+                .get()
+                .uri(pocVisitAddress + "/owners/{ownerId}/pets/{petId}/visits", ownerId, petId)
+                .retrieve()
+                .bodyToMono(Visits.class);
 
     }
 
@@ -76,19 +76,19 @@ public class VisitsServiceClient {
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_APPLICATION, "visits-service");
         // Span.current().setAttribute(WellKnownAttributes.REMOTE_OPERATION, "/owners/*/pets/{petId}/visits");
         return webClientBuilder.build()
-            .post()
-            .uri(hostname + "owners/{ownerId}/pets/{petId}/visits", ownerId, petId)
-            .body(Mono.just(visitDetails), VisitDetails.class)
-            .retrieve()
-            .bodyToMono(String.class)
+                .post()
+                .uri(pocVisitAddress + "/owners/{ownerId}/pets/{petId}/visits", ownerId, petId)
+                .body(Mono.just(visitDetails), VisitDetails.class)
+                .retrieve()
+                .bodyToMono(String.class)
                 .onErrorResume(WebClientResponseException.class,
-                    ex -> {
-                        if (ex.getRawStatusCode() == 400) {
-                            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getResponseBodyAsString()));
-                        } else {
-                            return Mono.error(ex);
-                        }
-                    });
+                        ex -> {
+                            if (ex.getRawStatusCode() == 400) {
+                                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getResponseBodyAsString()));
+                            } else {
+                                return Mono.error(ex);
+                            }
+                        });
     }
 
     private String joinIds(List<Integer> petIds) {
@@ -96,6 +96,6 @@ public class VisitsServiceClient {
     }
 
     void setHostname(String hostname) {
-        this.hostname = hostname;
+        this.pocVisitAddress = hostname;
     }
 }

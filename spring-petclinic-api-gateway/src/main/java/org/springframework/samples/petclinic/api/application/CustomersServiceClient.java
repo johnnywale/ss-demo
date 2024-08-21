@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.samples.petclinic.api.dto.*;
 import org.springframework.samples.petclinic.api.utils.WellKnownAttributes;
@@ -40,39 +41,47 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class CustomersServiceClient {
 
+    @Value("${poc.address.customer:ec2-47-129-150-214.ap-southeast-1.compute.amazonaws.com:8080}")
+    private String customerAddress;
+
+
     private final WebClient.Builder webClientBuilder;
 
     public Flux<OwnerDetails> getOwners() {
-        return fluxQuery(OwnerDetails.class, "customers-service", "/owners");
+        return fluxQuery(OwnerDetails.class, customerAddress, "/owners");
+    }
+
+    private String getCustomerAddress() {
+        return "http://" + customerAddress;
     }
 
     @WithSpan
     public Mono<OwnerDetails> getOwner(final int ownerId) {
         return webClientBuilder.build().get()
-            .uri("http://customers-service/owners/{ownerId}", ownerId)
-            .retrieve()
-            .onStatus(
-                HttpStatus.BAD_REQUEST::equals,
-                response -> response.bodyToMono(String.class).map(IllegalArgumentException::new))
-            .bodyToMono(OwnerDetails.class);
+                .uri(getCustomerAddress() + "/owners/{ownerId}", ownerId)
+                .retrieve()
+                .onStatus(
+                        HttpStatus.BAD_REQUEST::equals,
+                        response -> response.bodyToMono(String.class).map(IllegalArgumentException::new))
+                .bodyToMono(OwnerDetails.class);
     }
 
-//    @WithSpan
+    //    @WithSpan
     public Mono<Void> updateOwner(final int ownerId, final OwnerRequest ownerRequest) {
         return webClientBuilder.build().put()
-            .uri("http://customers-service/owners/{ownerId}", ownerId)
-            .body(Mono.just(ownerRequest), OwnerRequest.class)
-            .retrieve()
-            .bodyToMono(Void.class);
+                .uri(getCustomerAddress() + "/owners/{ownerId}", ownerId)
+                .body(Mono.just(ownerRequest), OwnerRequest.class)
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 
     @WithSpan
     public Mono<Void> addOwner(final OwnerRequest ownerRequest) {
         return webClientBuilder.build().post()
-            .uri("http://customers-service/owners")
-            .body(Mono.just(ownerRequest), OwnerRequest.class)
-            .retrieve()
-            .bodyToMono(Void.class);
+                .uri(getCustomerAddress() + "/owners")
+                .body(Mono.just(ownerRequest), OwnerRequest.class)
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 
     public Flux<PetType> getPetTypes() {
@@ -82,35 +91,36 @@ public class CustomersServiceClient {
     @WithSpan
     public Mono<PetFull> getPet(final int ownerId, final int petId) {
         return webClientBuilder.build().get()
-            .uri("http://customers-service/owners/{ownerId}/pets/{petId}", ownerId, petId)
-            .retrieve()
-            .bodyToMono(PetFull.class);
+                .uri(getCustomerAddress() + "/{ownerId}/pets/{petId}", ownerId, petId)
+                .retrieve()
+                .bodyToMono(PetFull.class);
     }
 
     @WithSpan
     public Mono<Void> diagnosePet(final int ownerId, final int petId) {
         log.info("DEBUG: Inside the diagnose API");
         return webClientBuilder.build().get()
-                .uri("http://customers-service/diagnose/owners/{ownerId}/pets/{petId}", ownerId, petId)
+                .uri(getCustomerAddress() + "diagnose/owners/{ownerId}/pets/{petId}", ownerId, petId)
                 .retrieve()
                 .bodyToMono(Void.class);
     }
+
     @WithSpan
     public Mono<Void> updatePet(final int ownerId, final int petId, final PetRequest petRequest) {
         return webClientBuilder.build().put()
-            .uri("http://customers-service/owners/{ownerId}/pets/{petId}", ownerId, petId)
-            .body(Mono.just(petRequest), PetRequest.class)
-            .retrieve()
-            .bodyToMono(Void.class);
+                .uri(getCustomerAddress() + "/owners/{ownerId}/pets/{petId}", ownerId, petId)
+                .body(Mono.just(petRequest), PetRequest.class)
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 
     @WithSpan
     public Mono<PetFull> addPet(final int ownerId, final PetRequest petRequest) {
         return webClientBuilder.build().post()
-            .uri("http://customers-service/owners/{ownerId}/pets", ownerId)
-            .body(Mono.just(petRequest), PetRequest.class)
-            .retrieve()
-            .bodyToMono(PetFull.class);
+                .uri(customerAddress + "/owners/{ownerId}/pets", ownerId)
+                .body(Mono.just(petRequest), PetRequest.class)
+                .retrieve()
+                .bodyToMono(PetFull.class);
     }
 
     @WithSpan

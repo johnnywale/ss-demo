@@ -1,15 +1,27 @@
 spring:
   application:
     name: api-gateway
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888/}
+  cloud.config.import-check.enabled: false
 
-eureka:
-  instance:
-    preferIpAddress: true
-  client:
-    service-url:
-      defaultZone: ${DISCOVERY_SERVER_URL:http://localhost:8761/eureka}
+
+management:
+  info:
+    env:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: info
+
+
+
+poc:
+  address:
+    customer: 47.129.150.214:8080
+    insurance: ec2-13-228-75-181.ap-southeast-1.compute.amazonaws.com:8000
+    vet: 52.221.233.113:8080
+    billing: 13.212.101.100:8800
+
 
 server:
   error:

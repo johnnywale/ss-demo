@@ -1,9 +1,11 @@
 #!/bin/bash
-set -ex 
+
+
+set -ex
 
 # Default values
-DEFAULT_REGION="us-east-1"
-OPERATION="create"
+DEFAULT_REGION="ap-southeast-1"
+OPERATION="delete"
 
 # Read command line arguments
 for i in "$@"
@@ -108,7 +110,24 @@ function create_resources() {
               \"DeviceIndex\":0,
               \"Groups\":[\"$sg_id\"]
             }
-          ]
+          ],
+           \"BlockDeviceMappings\":[
+              {
+                \"DeviceName\":\"/dev/xvda\",
+                \"Ebs\":{
+                  \"Encrypted\":true
+                }
+              },
+              {
+                \"DeviceName\":\"/dev/sdb\",
+                \"Ebs\":{
+                  \"DeleteOnTermination\":true,
+                  \"VolumeSize\":100,
+                  \"VolumeType\":\"gp2\",
+                  \"Encrypted\":true
+                }
+              }
+            ]
         }"
         
         # Create Auto Scaling Group
@@ -126,7 +145,7 @@ function create_resources() {
         instance_ids+=($instance_id)
 
       else
-        instance_id=$(aws ec2 run-instances --image-id $IMAGE_ID --count 1 --instance-type t3.medium --key-name $KEY_NAME --security-group-ids $sg_id  --iam-instance-profile Name=$INSTANCE_PROFILE --associate-public-ip-address --query 'Instances[0].InstanceId' --output text)
+        instance_id=$(aws ec2 run-instances --image-id $IMAGE_ID --count 1 --instance-type t3.medium --key-name $KEY_NAME --security-group-ids $sg_id  --iam-instance-profile Name=$INSTANCE_PROFILE --associate-public-ip-address      --block-device-mappings file://mapping.json --query 'Instances[0].InstanceId' --output text)
         aws ec2 create-tags --resources $instance_id --tags Key=Name,Value=$name
         instance_ids+=($instance_id)
       fi
@@ -153,7 +172,7 @@ function create_database() {
 
   # Create a database subnet group
   db_subnet_group_name="my-db-subnet-group"
-  aws rds create-db-subnet-group --db-subnet-group-name $db_subnet_group_name --db-subnet-group-description "Subnet group for RDS" --subnet-ids $subnet_ids
+#  aws rds create-db-subnet-group --db-subnet-group-name $db_subnet_group_name --db-subnet-group-description "Subnet group for RDS" --subnet-ids $subnet_ids
 
   # Wait for the DB subnet group to be available (assumed immediate availability after creation)
   echo "DB subnet group created and ready to use."
@@ -176,6 +195,7 @@ function create_database() {
       --db-subnet-group-name $db_subnet_group_name \
       --vpc-security-group-ids $security_group \
       --no-multi-az \
+      --storage-encrypted \
       --backup-retention-period 0 \
       --tags Key=Name,Value=$db_instance_identifier \
       --output text
@@ -237,7 +257,7 @@ function run_setup() {
       --output text)
 
   # SSH and run commands on the setup instance
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install java-17-amazon-corretto-devel git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/ && 
@@ -249,7 +269,7 @@ function run_setup() {
 EOF
 
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
     tmux new -s config -d
     tmux send-keys -t config 'cd application-signals-demo/spring-petclinic-config-server/target/' C-m
     tmux send-keys -t config 'java -jar spring-petclinic-config-server*.jar' C-m
@@ -257,7 +277,7 @@ EOF
 
   sleep 20
 
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
     tmux new -s discovery -d
     tmux send-keys -t discovery 'cd application-signals-demo/spring-petclinic-discovery-server/target/' C-m
     tmux send-keys -t discovery 'java -jar spring-petclinic-discovery-server*.jar' C-m
@@ -265,7 +285,7 @@ EOF
   
   sleep 20
 
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << 'EOF'
     tmux new -s admin -d
     tmux send-keys -t admin 'cd application-signals-demo/spring-petclinic-admin-server/target/' C-m
     tmux send-keys -t admin 'java -jar spring-petclinic-admin-server*.jar' C-m
@@ -287,7 +307,7 @@ function run_pet_clinic_frontend() {
       --output text)
 
   # SSH and run commands on the instance
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install java-17-amazon-corretto-devel git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/ && 
@@ -300,7 +320,7 @@ EOF
 
   service_name="pet-clinic-frontend-ec2-java"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s frontend -d
     tmux send-keys -t frontend 'cd application-signals-demo/spring-petclinic-api-gateway/target/' C-m
     tmux send-keys -t frontend "wget $JAVA_INSTRUMENTATION_AGENT_DOWNLOAD_URL" C-m
@@ -330,7 +350,7 @@ function run_vets() {
       --output text)
 
   # SSH and run commands on the instance
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install java-17-amazon-corretto-devel git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/ && 
@@ -343,7 +363,7 @@ EOF
 
   service_name="vets-service-ec2-java"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s vets -d
     tmux send-keys -t vets 'cd application-signals-demo/spring-petclinic-vets-service/target/' C-m
     tmux send-keys -t vets  "wget $JAVA_INSTRUMENTATION_AGENT_DOWNLOAD_URL" C-m
@@ -374,7 +394,7 @@ function run_customers() {
       --output text)
 
   # SSH and run commands on the instance
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install java-17-amazon-corretto-devel git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/ && 
@@ -387,7 +407,7 @@ EOF
 
   service_name="customers-service-ec2-java"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s customers -d
     tmux send-keys -t customers 'cd application-signals-demo/spring-petclinic-customers-service/target/' C-m
     tmux send-keys -t customers  "wget $JAVA_INSTRUMENTATION_AGENT_DOWNLOAD_URL" C-m
@@ -417,7 +437,7 @@ function run_visits() {
       --output text)
 
   # SSH and run commands on the instance
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install java-17-amazon-corretto-devel git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/ && 
@@ -430,7 +450,7 @@ EOF
 
   service_name="visits-service-ec2-java"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s visits -d
     tmux send-keys -t visits 'cd application-signals-demo/spring-petclinic-visits-service/target/' C-m
     tmux send-keys -t visits  "wget $JAVA_INSTRUMENTATION_AGENT_DOWNLOAD_URL" C-m
@@ -459,7 +479,7 @@ function run_insurances() {
       --query "Reservations[*].Instances[*].PublicIpAddress" \
       --output text)
 
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/scripts/ec2/appsignals &&
@@ -470,7 +490,7 @@ EOF
 
   service_name="insurance-service-ec2-python"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s insurance -d
     tmux send-keys -t insurance 'cd application-signals-demo/pet_clinic_insurance_service' C-m
     tmux send-keys -t insurance "./ec2-setup.sh $master_password $PRIVATE_IP_OF_SETUP_INSTANCE $service_name" C-m
@@ -492,7 +512,7 @@ function run_billings() {
       --output text)
 
   # TODO
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip <<EOF
       sudo yum install git tmux wget -y &&
       git clone https://github.com/aws-observability/application-signals-demo.git &&
       cd application-signals-demo/scripts/ec2/appsignals &&
@@ -503,7 +523,7 @@ EOF
 
   service_name="billing-service-ec2-python"
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s billing -d
     tmux send-keys -t billing 'cd application-signals-demo/pet_clinic_billing_service' C-m
     tmux send-keys -t billing "./ec2-setup.sh $master_password $PRIVATE_IP_OF_SETUP_INSTANCE $service_name" C-m
@@ -527,14 +547,14 @@ function generate_traffic() {
       --query "Reservations[*].Instances[*].PublicIpAddress" \
       --output text)
 
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     cd application-signals-demo/traffic-generator/ &&
     sudo yum install nodejs -y &&
     npm install --only=production
 EOF
 
   # SSH again to start tmux session
-  ssh -o StrictHostKeyChecking=no -i "${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
+  ssh -o StrictHostKeyChecking=no -i "/tmp/${KEY_NAME}.pem" ec2-user@$setup_ip << EOF
     tmux new -s traffic-generator -d
     tmux send-keys -t traffic-generator 'cd application-signals-demo/traffic-generator/' C-m
     tmux send-keys -t traffic-generator "export URL=\"http://${setup_ip}:8080\"" C-m
@@ -565,7 +585,7 @@ function delete_resources() {
         asg_name="asg-$name"
         launch_template_name="lt-$name"
         aws autoscaling update-auto-scaling-group --auto-scaling-group-name $asg_name --min-size 0 --max-size 0 --desired-capacity 0
-      else 
+      else
         instance_id=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$name" --query 'Reservations[*].Instances[*].InstanceId' --output text)
         if [ ! -z "$instance_id" ]; then
           if [ "$name" != "visits" ]; then
@@ -576,7 +596,7 @@ function delete_resources() {
         fi
       fi
     done
-    
+
     # Update the ASG to have 0 instances
     asg_name="asg-visits"
     aws autoscaling update-auto-scaling-group --auto-scaling-group-name $asg_name --min-size 0 --max-size 0 --desired-capacity 0
@@ -593,7 +613,7 @@ function delete_resources() {
 
     # Delete the ASG
     aws autoscaling delete-auto-scaling-group --auto-scaling-group-name $asg_name --force-delete
-    
+
     # Delete the Launch Template
     launch_template_name="lt-visits"
     aws ec2 delete-launch-template --launch-template-name $launch_template_name
@@ -632,12 +652,12 @@ function delete_resources() {
 if [ "$OPERATION" == "delete" ]; then
     delete_resources
 else
-    create_resources
-    run_setup
-    run_pet_clinic_frontend
-    run_vets
-    run_customers
-    run_visits
+#    create_resources
+#    run_setup
+#    run_pet_clinic_frontend
+#    run_vets
+#    run_customers
+#    run_visits
     create_database
     run_insurances
     run_billings

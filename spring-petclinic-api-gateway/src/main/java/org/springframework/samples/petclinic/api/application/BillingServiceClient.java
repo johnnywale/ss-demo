@@ -20,6 +20,7 @@ package org.springframework.samples.petclinic.api.application;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.samples.petclinic.api.dto.BillingDetail;
 import org.springframework.samples.petclinic.api.dto.InsuranceDetail;
 import org.springframework.samples.petclinic.api.dto.PetInsurance;
@@ -34,15 +35,22 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 public class BillingServiceClient {
+    @Value("${poc.address.billing:c2-13-212-101-100.ap-southeast-1.compute.amazonaws.com:8080}")
+    private String billingAddress;
+
+
+    private String getBillingAddress() {
+        return "http://" + billingAddress;
+    }
 
     private final WebClient.Builder webClientBuilder;
 
     public Flux<BillingDetail> getBillings() {
         // return Flux.empty().cast(InsuranceDetail.class);
         return webClientBuilder.build().get()
-            .uri("http://billing-service/billings/")
-            .retrieve()
-            .bodyToFlux(BillingDetail.class);
+                .uri(getBillingAddress() + "/billings/")
+                .retrieve()
+                .bodyToFlux(BillingDetail.class);
     }
 
 }
