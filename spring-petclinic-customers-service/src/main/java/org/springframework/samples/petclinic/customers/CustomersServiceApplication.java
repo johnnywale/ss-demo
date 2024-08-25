@@ -17,6 +17,7 @@ package org.springframework.samples.petclinic.customers;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.ApplicationPidFileWriter;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -28,8 +29,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class CustomersServiceApplication {
 
-	public static void main(String[] args) {
+    public static void main(String[] args) {
 
-		SpringApplication.run(CustomersServiceApplication.class, args);
-	}
+        SpringApplication springApplication = new SpringApplication(CustomersServiceApplication.class);
+        springApplication.addListeners(new ApplicationPidFileWriter());
+        springApplication.run(args);
+    }
 }

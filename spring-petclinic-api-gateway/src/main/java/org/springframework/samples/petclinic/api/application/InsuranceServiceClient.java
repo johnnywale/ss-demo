@@ -20,7 +20,6 @@ package org.springframework.samples.petclinic.api.application;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.samples.petclinic.api.dto.InsuranceDetail;
 import org.springframework.samples.petclinic.api.dto.PetInsurance;
 import org.springframework.stereotype.Component;
@@ -35,50 +34,40 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class InsuranceServiceClient {
 
-
-    @Value("${poc.address.insurance:ec2-13-228-75-181.ap-southeast-1.compute.amazonaws.com:8080}")
-    private String pocInsuranceAddress;
-
     private final WebClient.Builder webClientBuilder;
-
-    private String getPocInsuranceAddress() {
-        return "http://" + pocInsuranceAddress ;
-    }
 
     public Flux<InsuranceDetail> getInsurances() {
         // return Flux.empty().cast(InsuranceDetail.class);
         return webClientBuilder.build().get()
-
-                .uri(getPocInsuranceAddress() + "/insurances/")
-                .retrieve()
-                .bodyToFlux(InsuranceDetail.class);
+            // .uri("lb://insurance-service/insurances")
+            .uri("http://insurance-service/insurances/")
+            .retrieve()
+            .bodyToFlux(InsuranceDetail.class);
     }
 
     @WithSpan
     public Mono<Void> addPetInsurance(final PetInsurance petInsurance) {
         return webClientBuilder.build()
                 .post()
-                .uri(getPocInsuranceAddress() + "/pet-insurances/")
+                .uri("http://insurance-service/pet-insurances/")
                 .body(Mono.just(petInsurance), PetInsurance.class)
                 .retrieve()
                 .bodyToMono(Void.class);
     }
-
     @WithSpan
     public Mono<PetInsurance> updatePetInsurance(final int petId, final PetInsurance petInsurance) {
         return webClientBuilder.build()
                 .put()
-                .uri(getPocInsuranceAddress() + "/pet-insurances/" + petId + "/")
+                .uri("http://insurance-service/pet-insurances/" + petId + "/")
                 .body(Mono.just(petInsurance), PetInsurance.class)
                 .retrieve()
                 .bodyToMono(PetInsurance.class);
     }
-
     @WithSpan
     public Mono<PetInsurance> getPetInsurance(final int petId) {
         return webClientBuilder.build()
                 .get()
-                .uri(getPocInsuranceAddress() + "/pet-insurances/" + petId + "/")
+                .uri("http://insurance-service/pet-insurances/" + petId + "/")
                 .retrieve()
                 .bodyToMono(PetInsurance.class);
     }

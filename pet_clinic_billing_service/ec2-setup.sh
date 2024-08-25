@@ -34,4 +34,4 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:4316/v1/traces
 export OTEL_RESOURCE_ATTRIBUTES="service.name=$SVC_NAME"
 
 python3 manage.py migrate  
-opentelemetry-instrument python3 manage.py runserver 0.0.0.0:8800 --noreload80
+opentelemetry-instrument python3 manage.py runserver 0.0.0.0:8800 --noreload

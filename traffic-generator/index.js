@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cron = require('node-cron');
 
-const baseUrl = process.env.URL || 'http://your-sample-app-end-point';
+const baseUrl = "http://ec2-13-212-192-214.ap-southeast-1.compute.amazonaws.com:8080";
 const highLoadMaxRequests = parseInt(process.env.HIGH_LOAD_MAX, 10) || 1600;
 const highLoadMinRequests = parseInt(process.env.HIGH_LOAD_MIN, 10) || 800;
 const burstMaxDelay = parseInt(process.env.BURST_DELAY_MAX, 10) || 120;
@@ -21,7 +21,7 @@ const postVisitData = (date, description) => {
         description: description
     };
 
-    return axios.post(url, data, { timeout: 10000 });
+    return axios.post(url, data, {timeout: 10000});
 }
 
 
@@ -39,12 +39,12 @@ const lowTrafficTask = cron.schedule('* * * * *', () => {
                 console.error("Failed to post /api/visit/owners/7/pets/9/visits, error: " + (err.response ? err.response.data : err.toString()));
 
             }); // Catch and log errors
-        axios.get(`${baseUrl}/api/gateway/owners/1`, { timeout: 10000 })
+        axios.get(`${baseUrl}/api/gateway/owners/1`, {timeout: 10000})
             .catch(err => {
                 console.error(`${baseUrl}/api/gateway/owners/1, error: ` + (err.response ? err.response.data : err.toString()));
             }); // Catch and log errors
     }
-}, { scheduled: false });
+}, {scheduled: false});
 
 lowTrafficTask.start();
 
@@ -72,28 +72,28 @@ scheduleHighLoad();
 const invalidRequestTask = cron.schedule('* * * * *', () => {
     const lowLoad = getRandomNumber(2, 5);
     for (let i = 0; i < lowLoad; i++) {
-        sleep(2*1000);
+        sleep(2 * 1000);
         console.log('send invalid traffic: ' + (i + 1))
-        axios.get(`${baseUrl}/api/gateway/owners/-1`, { timeout: 10000 })
+        axios.get(`${baseUrl}/api/gateway/owners/-1`, {timeout: 10000})
             .catch(err => {
                 console.error("Failed to get /api/gateway/owners/-1, error: " + (err.response ? err.response.data : err.toString()));
             }); // Catch and log errors
     }
-}, { scheduled: false });
+}, {scheduled: false});
 
 invalidRequestTask.start();
 
 const bedrockRequestTask = cron.schedule('* * * * *', () => {
     const lowLoad = getRandomNumber(1, 2);
     for (let i = 0; i < lowLoad; i++) {
-        sleep(5*1000);
+        sleep(5 * 1000);
         console.log('calling bedrock: ' + (i + 1))
-        axios.get(`${baseUrl}/api/customer/diagnose/owners/1/pets/1`, { timeout: 30000 })
+        axios.get(`${baseUrl}/api/customer/diagnose/owners/1/pets/1`, {timeout: 30000})
             .catch(err => {
                 console.error("Failed to get /api/customer/diagnose/owners/1/pets/1, error: " + (err.response ? err.response.data : err.toString()));
             }); // Catch and log errors
     }
-}, { scheduled: false });
+}, {scheduled: false});
 
 bedrockRequestTask.start();
 
@@ -103,60 +103,59 @@ const createOwnerLowTrafficTask = cron.schedule('* * * * *', () => {
     for (let i = 0; i < lowLoad; i++) {
         console.log('create owner low traffic: ' + (i + 1))
         sleep(2 * 1000)
-        const data = { firstName: "random-traffic", address: "A", city: "B", telephone: "123489067542", lastName: "NA" }
-        axios.post(`${baseUrl}/api/customer/owners`, data, { timeout: 10000 })
+        const data = {firstName: "random-traffic", address: "A", city: "B", telephone: "123489067542", lastName: "NA"}
+        axios.post(`${baseUrl}/api/customer/owners`, data, {timeout: 10000})
             .catch(err => {
                 console.error("Failed to post /api/customer/owners, error: " + (err.response ? err.response.data : err.toString()));
             }); // Catch and log errors
     }
-}, { scheduled: false });
+}, {scheduled: false});
 
 createOwnerLowTrafficTask.start();
 
 
-
 const createOwnerHighTrafficTask = cron.schedule('*/5 * * * *', () => {
     const highLoad = getRandomNumber(50, 80);
-    sleep(getRandomNumber(1,2)*60*1000);
+    sleep(getRandomNumber(1, 2) * 60 * 1000);
     for (let i = 0; i < highLoad; i++) {
         console.log('create owner high traffic: ' + (i + 1))
         sleep(3 * 1000)
-        const data = { firstName: "random-traffic", address: "A", city: "B", telephone: "123489067542", lastName: "NA" }
-        axios.post(`${baseUrl}/api/customer/owners`, data, { timeout: 10000 })
+        const data = {firstName: "random-traffic", address: "A", city: "B", telephone: "123489067542", lastName: "NA"}
+        axios.post(`${baseUrl}/api/customer/owners`, data, {timeout: 10000})
             .catch(err => {
                 console.error("Failed to post /api/customer/owners, error: " + (err.response ? err.response.data : err.toString()));
             }); // Catch and log errors
     }
-}, { scheduled: false });
+}, {scheduled: false});
 
 createOwnerHighTrafficTask.start();
 
 const postPetsLowTrafficTask = cron.schedule('*/2 * * * *', () => {
     console.log('add 1 pet every 2 minutes');
     const name = "lastName" + new Date().toLocaleTimeString();
-    const data = {"id":0,"name":name ,"birthDate":"2023-11-20T08:00:00.000Z","typeId":"1"}
-    axios.post(`${baseUrl}/api/customer/owners/7/pets`, data, { timeout: 10000 })
+    const data = {"id": 0, "name": name, "birthDate": "2023-11-20T08:00:00.000Z", "typeId": "1"}
+    axios.post(`${baseUrl}/api/customer/owners/7/pets`, data, {timeout: 10000})
         .catch(err => {
             console.error("Failed to post /api/customer/owners/7/pets, error: " + (err.response ? err.response.data : err.toString()));
         }); // Catch and log errors
-}, { scheduled: false });
+}, {scheduled: false});
 
 postPetsLowTrafficTask.start();
 
 const postPetsHighTrafficTask = cron.schedule('0 * * * *', async () => {
-sleepMins = getRandomNumber(1,10);
-console.log(`sleep ${sleepMins} minutes`);
-await sleep(sleepMins*60*1000);
-console.log('add 2 pets within 1 minute');
-for (let i = 0; i < 2; i++) {
+    sleepMins = getRandomNumber(1, 10);
+    console.log(`sleep ${sleepMins} minutes`);
+    await sleep(sleepMins * 60 * 1000);
     console.log('add 2 pets within 1 minute');
-    const name = "lastName" + new Date().toLocaleTimeString();
-    const data = {"id": 0, "name": name, "birthDate": "2023-11-20T08:00:00.000Z", "typeId": "2"}
-    await axios.post(`${baseUrl}/api/customer/owners/7/pets`, data, {timeout: 10000})
-        .catch(err => {
-            console.error("Failed to post /api/customer/owners/7/pets, error: " + (err.response ? err.response.data : err.toString()));
-        }); // Catch and log errors
-}
-}, { scheduled: false });
+    for (let i = 0; i < 2; i++) {
+        console.log('add 2 pets within 1 minute');
+        const name = "lastName" + new Date().toLocaleTimeString();
+        const data = {"id": 0, "name": name, "birthDate": "2023-11-20T08:00:00.000Z", "typeId": "2"}
+        await axios.post(`${baseUrl}/api/customer/owners/7/pets`, data, {timeout: 10000})
+            .catch(err => {
+                console.error("Failed to post /api/customer/owners/7/pets, error: " + (err.response ? err.response.data : err.toString()));
+            }); // Catch and log errors
+    }
+}, {scheduled: false});
 
 postPetsHighTrafficTask.start();

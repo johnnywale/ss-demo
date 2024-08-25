@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 psql_pass=$1
 private_setup_ip_address=$2
 SVC_NAME=$3
